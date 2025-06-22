@@ -2,31 +2,34 @@ name: Run Tests on Push or Pull Request to Main
 
 on:
   push:
-    branches:
-      - main  # Run tests on any push to the main branch
+    branches: [ main ]          # Run on every push to main
   pull_request:
-    branches:
-      - main  # Run tests on any pull request to the main branch
+    branches: [ main ]          # Run on every PR targeting main
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
+      # 1 – Fetch your repository
       - name: Check out the code
         uses: actions/checkout@v3
 
+      # 2 – Select a Python interpreter (3.11 is common; adjust if needed)
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'  # Set your desired Python version
+          python-version: "3.11"
 
-      - name: Install dependencies from requirements.txt
+      # 3 – Install everything needed to run tests
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov  # Ensure pytest-cov is installed
+          pip install pytest pytest-cov
 
-      - name: Run tests with pytest and enforce 70% coverage
+      # 4 – Run the test-suite and **fail** if coverage < 100 %
+      - name: Run tests & enforce 100 % coverage
         run: |
-          pytest --cov=app --cov-fail-under=70
+          pytest --cov=app --cov-report=term-missing --cov-fail-under=100
+
