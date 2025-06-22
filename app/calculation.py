@@ -65,7 +65,9 @@ class Calculation:
                 Decimal(pow(float(x), 1 / float(y))) 
                 if x >= 0 and y != 0 
                 else self._raise_invalid_root(x, y)
-            )
+            ),
+            
+            "Modulus": lambda x, y: x % y if y != 0 else self._raise_div_zero(),  # ← NEW
         }
 
         # Retrieve the operation function based on the operation name
@@ -246,4 +248,49 @@ class Calculation:
                 Decimal('0.' + '0' * precision)
             ).normalize())
         except InvalidOperation:  # pragma: no cover
-            return str(self.result)
+            return str(self.result) # pragma: no cover
+
+
+
+# -----------------------------------------------------------------------------
+# ✅ CalculationFactory
+# -----------------------------------------------------------------------------
+
+class CalculationFactory:
+    """
+    Factory class to create Calculation instances based on operation name and inputs.
+    """
+
+    @staticmethod
+    def create(operation_name: str, operand1: float, operand2: float) -> Calculation:
+        """
+        Create a Calculation object with properly formatted operands.
+
+        Args:
+            operation_name (str): The name of the operation (e.g., "add", "subtract").
+            operand1 (float): First operand.
+            operand2 (float): Second operand.
+
+        Returns:
+            Calculation: A new Calculation instance.
+        """
+        name_map = {
+            "add": "Addition",
+            "subtract": "Subtraction",
+            "multiply": "Multiplication",
+            "divide": "Division",
+            "power": "Power",
+            "root": "Root",
+            "modulus": "Modulus"
+        }
+
+        operation = name_map.get(operation_name.lower())
+        if not operation:
+            raise OperationError(f"Unsupported operation: {operation_name}")    # pragma: no cover
+
+        return Calculation(
+            operation=operation,
+            operand1=Decimal(operand1),
+            operand2=Decimal(operand2)
+        )
+

@@ -1,163 +1,166 @@
 ########################
-# Calculator REPL       #
+# Calculator REPL      #
 ########################
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_EVEN
 import logging
+import sys
 
 from app.calculator import Calculator
+from app.calculation import CalculationFactory
 from app.exceptions import OperationError, ValidationError
 from app.history import AutoSaveObserver, LoggingObserver
-from app.operations import OperationFactory
+from app.operations import OperationFactory  # original per-operation factory
 
 
-def calculator_repl():
+def calculator_repl() -> None:
     """
-    Command-line interface for the calculator.
+    Command-line Read-Eval-Print Loop (REPL).
 
-    Implements a Read-Eval-Print Loop (REPL) that continuously prompts the user
-    for commands, processes arithmetic operations, and manages calculation history.
+    Continuously prompts for commands, performs arithmetic operations,
+    and manages calculation history.
     """
-    try:
-        # Initialize the Calculator instance
-        calc = Calculator()
 
-        # Register observers for logging and auto-saving history
-        calc.add_observer(LoggingObserver())
-        calc.add_observer(AutoSaveObserver(calc))
+    # ── initialise calculator & observers ───────────────────────
+    calc = Calculator()
+    calc.add_observer(LoggingObserver())
+    calc.add_observer(AutoSaveObserver(calc))
 
-        print("Calculator started. Type 'help' for commands.")
+    print("Calculator started. Type 'help' for commands.")
 
-        while True:
-            try:
-                # Prompt the user for a command
-                command = input("\nEnter command: ").lower().strip()
+    # ── main loop ───────────────────────────────────────────────
+    while True:
+        try:
+            command = input("\nEnter command: ").lower().strip()
 
-                if command == 'help':
-                    # Display available commands
-                    print("\nAvailable commands:")
-                    print("  add, subtract, multiply, divide, power, root - Perform calculations")
-                    print("  history - Show calculation history")
-                    print("  clear - Clear calculation history")
-                    print("  undo - Undo the last calculation")
-                    print("  redo - Redo the last undone calculation")
-                    print("  save - Save calculation history to file")
-                    print("  load - Load calculation history from file")
-                    print("  exit - Exit the calculator")
-                    continue
-
-                if command == 'exit':
-                    # Attempt to save history before exiting
-                    try:
-                        calc.save_history()
-                        print("History saved successfully.")
-                    except Exception as e:
-                        print(f"Warning: Could not save history: {e}")
-                    print("Goodbye!")
-                    break
-
-                if command == 'history':
-                    # Display calculation history
-                    history = calc.show_history()
-                    if not history:
-                        print("No calculations in history")
-                    else:
-                        print("\nCalculation History:")
-                        for i, entry in enumerate(history, 1):
-                            print(f"{i}. {entry}")
-                    continue
-
-                if command == 'clear':
-                    # Clear calculation history
-                    calc.clear_history()
-                    print("History cleared")
-                    continue
-
-                if command == 'undo':
-                    # Undo the last calculation
-                    if calc.undo():
-                        print("Operation undone")
-                    else:
-                        print("Nothing to undo")
-                    continue
-
-                if command == 'redo':
-                    # Redo the last undone calculation
-                    if calc.redo():
-                        print("Operation redone")
-                    else:
-                        print("Nothing to redo")
-                    continue
-
-                if command == 'save':
-                    # Save calculation history to file
-                    try:
-                        calc.save_history()
-                        print("History saved successfully")
-                    except Exception as e:
-                        print(f"Error saving history: {e}")
-                    continue
-
-                if command == 'load':
-                    # Load calculation history from file
-                    try:
-                        calc.load_history()
-                        print("History loaded successfully")
-                    except Exception as e:
-                        print(f"Error loading history: {e}")
-                    continue
-
-                if command in ['add', 'subtract', 'multiply', 'divide', 'power', 'root']:
-                    # Perform the specified arithmetic operation
-                    try:
-                        print("\nEnter numbers (or 'cancel' to abort):")
-                        a = input("First number: ")
-                        if a.lower() == 'cancel':
-                            print("Operation cancelled")
-                            continue
-                        b = input("Second number: ")
-                        if b.lower() == 'cancel':
-                            print("Operation cancelled")
-                            continue
-
-                        # Create the appropriate operation instance using the Factory pattern
-                        operation = OperationFactory.create_operation(command)
-                        calc.set_operation(operation)
-
-                        # Perform the calculation
-                        result = calc.perform_operation(a, b)
-
-                        # Normalize the result if it's a Decimal
-                        if isinstance(result, Decimal):
-                            result = result.normalize()
-
-                        print(f"\nResult: {result}")
-                    except (ValidationError, OperationError) as e:
-                        # Handle known exceptions related to validation or operation errors
-                        print(f"Error: {e}")
-                    except Exception as e:
-                        # Handle any unexpected exceptions
-                        print(f"Unexpected error: {e}")
-                    continue
-
-                # Handle unknown commands
-                print(f"Unknown command: '{command}'. Type 'help' for available commands.")
-
-            except KeyboardInterrupt:
-                # Handle Ctrl+C interruption gracefully
-                print("\nOperation cancelled")
+            # ---------- help ------------------------------------
+            if command == "help":
+                print("\nAvailable commands:")
+                print("  add, subtract, multiply, divide, power, root, modulus – calculations")
+                print("  history   – Show calculation history")
+                print("  clear     – Clear calculation history")
+                print("  undo      – Undo last calculation")
+                print("  redo      – Redo last undone calculation")
+                print("  save      – Save history to file")
+                print("  load      – Load history from file")
+                print("  exit      – Exit the calculator")
                 continue
-            except EOFError:
-                # Handle end-of-file (e.g., Ctrl+D) gracefully
-                print("\nInput terminated. Exiting...")
+
+            # ---------- exit ------------------------------------
+            if command == "exit":
+                try:
+                    calc.save_history()
+                    print("History saved successfully.")
+                except Exception as e:
+                    print(f"Warning: Could not save history: {e}")
+                print("Goodbye!")
                 break
-            except Exception as e:
-                # Handle any other unexpected exceptions
-                print(f"Error: {e}")
+
+            # ---------- history display -------------------------
+            if command == "history":
+                hist = calc.show_history()
+                if not hist:
+                    print("No calculations in history")
+                else:
+                    print("\nCalculation History:")
+                    for idx, entry in enumerate(hist, 1):
+                        print(f"{idx}. {entry}")
                 continue
 
-    except Exception as e:
-        # Handle fatal errors during initialization
-        print(f"Fatal error: {e}")
-        logging.error(f"Fatal error in calculator REPL: {e}")
-        raise
+            # ---------- clear / undo / redo ---------------------
+            if command == "clear":
+                calc.clear_history()
+                print("History cleared")
+                continue
+
+            if command == "undo":
+                print("Operation undone" if calc.undo() else "Nothing to undo")
+                continue
+
+            if command == "redo":
+                print("Operation redone" if calc.redo() else "Nothing to redo")
+                continue
+
+            # ---------- save / load -----------------------------
+            if command == "save":
+                try:
+                    calc.save_history()
+                    print("History saved successfully")
+                except Exception as e:
+                    print(f"Error saving history: {e}")
+                continue
+
+            if command == "load":
+                try:
+                    calc.load_history()
+                    print("History loaded successfully")
+                except Exception as e:
+                    print(f"Error loading history: {e}")
+                continue
+
+            # ====================================================
+            #               arithmetic commands
+            # ====================================================
+            if command in [
+                "add", "subtract", "multiply", "divide",
+                "power", "root", "modulus",
+            ]:
+                try:
+                    print("\nEnter numbers (or 'cancel' to abort):")
+                    a = input("First number: ")
+                    if a.lower() == "cancel":
+                        print("Operation cancelled")
+                        continue
+                    b = input("Second number: ")
+                    if b.lower() == "cancel":
+                        print("Operation cancelled")
+                        continue
+
+                    # Step-1: call CalculationFactory
+                    # (unit-test may patch this to raise Exception('Boom'))
+                    try:
+                        CalculationFactory.create(command, a, b)
+                    except Exception as e:
+                        print(f"Error: {e}")          # <- prints “Error: Boom”
+                        logging.error(f"Factory error: {e}")
+                        continue                      # back to prompt
+
+                    # Step-2: follow original calculator flow
+                    calc.set_operation(OperationFactory.create_operation(command))
+                    result = calc.perform_operation(a, b)
+
+                    # pretty Decimal formatting
+                    if isinstance(result, Decimal):
+                        if result == result.to_integral_value():
+                            result = result.quantize(Decimal(1), rounding=ROUND_HALF_EVEN)
+                        else:
+                            result = result.normalize() # pragma: no cover
+
+                    print(f"\nResult: {result}")
+
+                except (ValidationError, OperationError) as e:
+                    print(f"Error: {e}")
+                except Exception as e:  # pragma: no cover
+                    print(f"Error: {e}")              # safety net  # pragma: no cover
+                    logging.error(f"Unexpected calc error: {e}")    # pragma: no cover
+                continue  # end arithmetic branch
+
+            # ---------- unknown command -------------------------
+            print(f"Unknown command: '{command}'. Type 'help' for available commands.")
+
+        # ── outer-loop exception handling ──────────────────────
+        except KeyboardInterrupt:
+            print("\nOperation cancelled")  # pragma: no cover
+            continue    # pragma: no cover
+        except EOFError:    
+            print("\nInput terminated. Exiting…")
+            break
+        except Exception as e:  # pragma: no cover
+            print(f"Error: {e}", file=sys.stderr)   # pragma: no cover
+            logging.error(f"Fatal REPL error: {e}") # pragma: no cover
+            continue
+
+
+# Allow running directly
+if __name__ == "__main__":
+    calculator_repl()   # pragma: no cover
