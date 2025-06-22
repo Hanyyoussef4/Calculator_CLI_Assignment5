@@ -12,6 +12,7 @@ from app.operations import (
     Power,
     Root,
     OperationFactory,
+    Modulus,
 )
 
 
@@ -178,6 +179,25 @@ class TestRoot(BaseOperationTest):
             "b": "0",
             "error": ValidationError,
             "message": "Zero root is undefined"
+        },
+    }
+
+class TestModulus(BaseOperationTest):
+    """Test Modulus operation."""
+
+    operation_class = Modulus
+    valid_test_cases = {
+        "positive_modulus":  {"a": "10",  "b": "3",  "expected": "1"},
+        "negative_dividend": {"a": "-10", "b": "3",  "expected": "-1"},
+        "negative_divisor":  {"a": "10",  "b": "-3", "expected": "1"},
+        "decimals":          {"a": "10.5","b": "3",  "expected": "1.5"},
+    }
+    invalid_test_cases = {
+        "modulus_by_zero": {
+            "a": "5",
+            "b": "0",
+            "error": ValidationError,
+            "message": "Modulus by zero is not allowed"
         },
     }
 
